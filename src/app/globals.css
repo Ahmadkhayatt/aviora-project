@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap");
+
+@layer base {
+  * {
+    @apply border-charcoal-200;
+  }
+
+  body {
+    @apply bg-charcoal-50 text-charcoal-900 font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+
+  ::selection {
+    @apply bg-gold-500/30 text-charcoal-950;
+  }
+}
+
+@layer components {
+  .container-luxe {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-charcoal-900 px-6 py-3 
+           text-sm font-medium text-white transition-all duration-200 
+           hover:bg-charcoal-700 focus:outline-none focus:ring-2 focus:ring-charcoal-400 
+           focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center rounded-md bg-gold-500 px-6 py-3 
+           text-sm font-medium text-charcoal-950 transition-all duration-200 
+           hover:bg-gold-400 focus:outline-none focus:ring-2 focus:ring-gold-300 
+           focus:ring-offset-2 shadow-gold disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-md border border-charcoal-300 
+           bg-transparent px-6 py-3 text-sm font-medium text-charcoal-700 
+           transition-all duration-200 hover:bg-charcoal-100 focus:outline-none 
+           focus:ring-2 focus:ring-charcoal-400 focus:ring-offset-2;
+  }
+
+  .card-luxe {
+    @apply rounded-lg bg-white p-6 shadow-luxury transition-shadow duration-200 hover:shadow-luxury-lg;
+  }
+
+  .badge-luxury {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .input-luxe {
+    @apply block w-full rounded-md border border-charcoal-300 bg-white px-4 py-2.5 
+           text-sm text-charcoal-900 placeholder:text-charcoal-400 
+           focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 
+           transition-colors duration-200;
+  }
+
+  .label-luxe {
+    @apply block text-sm font-medium text-charcoal-700 mb-1.5;
+  }
+
+  .section-heading {
+    @apply font-serif text-3xl font-semibold tracking-tight text-charcoal-900 sm:text-4xl;
+  }
+
+  .section-subheading {
+    @apply mt-2 text-lg text-charcoal-500;
+  }
+
+  .admin-sidebar-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium 
+           text-charcoal-600 transition-colors duration-150 
+           hover:bg-charcoal-100 hover:text-charcoal-900;
+  }
+
+  .admin-sidebar-link.active {
+    @apply bg-charcoal-100 text-charcoal-900;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-charcoal-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-charcoal-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-charcoal-400;
+}
+
+/* Barcode print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}

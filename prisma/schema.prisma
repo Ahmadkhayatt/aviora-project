@@ -1,0 +1,214 @@
+// ====================================================================
+// AVIORA — Prisma Database Schema
+// PostgreSQL via Supabase
+// Models: User, Session, Product, ProductVariant, Invoice, InvoiceItem
+// All relations enforced with explicit foreign key constraints.
+// ====================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ────────────────────────────────────────────────────────────────────
+// USER & AUTHENTICATION
+// ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  phone         String?
+  role          UserRole  @default(CUSTOMER)
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  sessions      Session[]
+  invoices      Invoice[]
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// PRODUCT & CATALOG
+// ────────────────────────────────────────────────────────────────────
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum ProductCategory {
+  ENGAGEMENT_RING
+  WEDDING_BAND
+  ETERNITY_BAND
+  COCKTAIL_RING
+  SIGNET_RING
+  NECKLACE
+  BRACELET
+  EARRINGS
+  PENDANT
+}
+
+enum JewelryMaterial {
+  GOLD_18K_YELLOW
+  GOLD_18K_WHITE
+  GOLD_18K_ROSE
+  GOLD_24K
+  PLATINUM
+  STERLING_SILVER_925
+  TITANIUM
+  PALLADIUM
+}
+
+enum InventoryStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+model Product {
+  id                 String          @id @default(cuid())
+  name               String
+  slug               String          @unique
+  description        String
+  category           ProductCategory
+  basePrice          Int             // stored in cents
+  coverImage         String?
+  images             String[]
+  availableSizes     Float[]
+  availableMaterials JewelryMaterial[]
+  availableGemstones String[]
+  isFeatured         Boolean         @default(false)
+  status             ProductStatus   @default(ACTIVE)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  // Relations
+  variants           ProductVariant[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([status])
+  @@map("products")
+}
+
+model ProductVariant {
+  id          String          @id @default(cuid())
+  productId   String
+  sku         String          @unique
+  barcode     String          @unique        // EAN-13 or Code-128 hashed
+  size        Float
+  material    JewelryMaterial
+  gemstone    String?
+  price       Int                            // stored in cents (overrides base)
+  quantity    Int             @default(0)
+  status      InventoryStatus @default(OUT_OF_STOCK)
+  images      String[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  invoiceItems InvoiceItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@index([barcode])
+  @@index([status])
+  @@map("product_variants")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// INVOICES & ORDERING
+// ────────────────────────────────────────────────────────────────────
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+model Invoice {
+  id              String         @id @default(cuid())
+  invoiceNumber   String         @unique
+  userId          String
+  status          InvoiceStatus  @default(PENDING)
+  subtotal        Int            // cents
+  taxAmount       Int            // cents
+  totalAmount     Int            // cents
+  currency        String         @default("USD")
+  notes           String?
+  billingName     String?
+  billingEmail    String?
+  billingPhone    String?
+  billingAddress  String?
+  paidAt          DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  user            User           @relation(fields: [userId], references: [id])
+  items           InvoiceItem[]
+
+  @@index([userId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String         @id @default(cuid())
+  invoiceId   String
+  variantId   String
+  productName String
+  sku         String
+  size        Float
+  material    JewelryMaterial
+  gemstone    String?
+  quantity    Int
+  unitPrice   Int            // cents at time of purchase
+  lineTotal   Int            // quantity * unitPrice
+
+  // Relations
+  invoice     Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([invoiceId])
+  @@index([variantId])
+  @@map("invoice_items")
+}

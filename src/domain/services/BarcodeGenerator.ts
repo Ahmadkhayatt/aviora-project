@@ -92,7 +92,7 @@ export class BarcodeGenerator {
    *
    * Complexity: O(n) where n = data.length
    */
-  static generateCode128B(data: string): Barcode13 {
+  static generateCode128B(data: string, nonce: number = 0): Barcode13 {
     const chars = [...data];
     if (chars.length === 0 || chars.length > 48) {
       throw new Error(`Code-128B data length must be 1-48 chars, got ${chars.length}`);
@@ -107,7 +107,7 @@ export class BarcodeGenerator {
     }
 
     // Hash to 13-digit numeric string for DB storage
-    const hash = this.hashTo13Digits(data);
+    const hash = this.hashTo13Digits(data, nonce);
     return hash as Barcode13;
   }
 
@@ -116,11 +116,12 @@ export class BarcodeGenerator {
    * Uses modular arithmetic with a large prime to minimize collisions.
    * Complexity: O(n), Space: O(1)
    */
-  private static hashTo13Digits(input: string): string {
+  private static hashTo13Digits(input: string, nonce: number = 0): string {
     const PRIME = 1000000000039n;
     let hash = 0n;
-    for (let i = 0; i < input.length; i++) {
-      hash = (hash * 31n + BigInt(input.charCodeAt(i))) % PRIME;
+    const saltedInput = nonce > 0 ? `${input}-${nonce}` : input;
+    for (let i = 0; i < saltedInput.length; i++) {
+      hash = (hash * 31n + BigInt(saltedInput.charCodeAt(i))) % PRIME;
     }
     // Extract 13 digits
     const numeric = Number(hash % 10000000000000n);
@@ -134,19 +135,19 @@ export class BarcodeGenerator {
    * @param sku - the SKU string for the variant
    * @param format - preferred format (defaults to EAN13 for retail)
    */
-  static generateVariantBarcode(sku: SkuCode, format: BarcodeFormat = BarcodeFormat.EAN13): Barcode13 {
+  static generateVariantBarcode(sku: SkuCode, format: BarcodeFormat = BarcodeFormat.EAN13, nonce: number = 0): Barcode13 {
     if (format === BarcodeFormat.CODE128B) {
-      return this.generateCode128B(sku);
+      return this.generateCode128B(sku, nonce);
     }
     // For EAN-13, extract numeric portion from SKU or generate from hash
     const numericPart = sku.replace(/\D/g, "").slice(0, 12);
-    if (numericPart.length === 12) {
+    if (numericPart.length === 12 && nonce === 0) {
       const digits = numericPart.split("").map(Number);
       const check = computeEAN13CheckDigit(digits);
       return (numericPart + check) as Barcode13;
     }
-    // Fallback: hash the full SKU
-    const digits = this.hashTo13Digits(sku);
+    // Fallback: hash the full SKU (incorporating nonce for collision retry)
+    const digits = this.hashTo13Digits(sku, nonce);
     const dataDigits = digits.slice(0, 12).split("").map(Number);
     const check = computeEAN13CheckDigit(dataDigits);
     return (dataDigits.join("") + check) as Barcode13;

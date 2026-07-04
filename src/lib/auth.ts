@@ -1,20 +1,28 @@
 // ====================================================================
 // AVIORA — Authentication & Authorization Helpers
 // Provides utilities for role-based access control.
+// Role is determined by email domain (isAdminEmail) — no DB call needed.
 // ====================================================================
 
 import { createClient } from "@/utils/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import type { UserRole } from "@prisma/client";
+
+/** Authorized user shape returned by auth helpers */
+export interface AuthUser {
+  readonly id: string;
+  readonly email: string;
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly role: "ADMIN" | "CUSTOMER";
+}
 
 /**
- * Retrieves the currently authenticated user session from Supabase,
- * then fetches the full user record from Prisma (including role).
+ * Retrieves the currently authenticated user from Supabase Auth.
+ * Role is derived from email domain matching the ADMIN_EMAIL_DOMAINS list.
  *
- * @returns The authenticated user with role, or null if not authenticated.
+ * @returns AuthUser with role, or null if not authenticated.
  */
-export async function getAuthenticatedUser() {
+export async function getAuthenticatedUser(): Promise<AuthUser | null> {
   const supabase = createClient();
   const {
     data: { user: authUser },
@@ -22,26 +30,22 @@ export async function getAuthenticatedUser() {
 
   if (!authUser?.email) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { email: authUser.email },
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      isActive: true,
-    },
-  });
+  const role = isAdminEmail(authUser.email) ? "ADMIN" : "CUSTOMER";
 
-  return user;
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    firstName: authUser.user_metadata?.firstName || null,
+    lastName: authUser.user_metadata?.lastName || null,
+    role,
+  };
 }
 
 /**
  * Ensures the user is authenticated. Redirects to /auth/login if not.
  * Returns the authenticated user if found.
  */
-export async function requireAuth() {
+export async function requireAuth(): Promise<AuthUser> {
   const user = await getAuthenticatedUser();
   if (!user) {
     redirect("/auth/login");
@@ -53,7 +57,7 @@ export async function requireAuth() {
  * Ensures the user has an ADMIN role. Redirects to / if not admin.
  * Returns the authenticated admin user if authorized.
  */
-export async function requireAdmin() {
+export async function requireAdmin(): Promise<AuthUser> {
   const user = await requireAuth();
 
   if (user.role !== "ADMIN") {
@@ -78,10 +82,10 @@ export function isAdminEmail(email: string): boolean {
 /**
  * Checks if a user role has sufficient privileges.
  */
-export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  const hierarchy: Record<UserRole, number> = {
+export function hasRole(userRole: string, requiredRole: string): boolean {
+  const hierarchy: Record<string, number> = {
     CUSTOMER: 0,
     ADMIN: 1,
   };
-  return hierarchy[userRole] >= hierarchy[requiredRole];
+  return (hierarchy[userRole] ?? -1) >= (hierarchy[requiredRole] ?? 0);
 }

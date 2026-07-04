@@ -43,7 +43,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const componentId = React.useId();
+    const inputId = id || `input-${componentId}`;
     const errorId = error ? `${inputId}-error` : undefined;
     const helperId = helperText ? `${inputId}-helper` : undefined;
     const describedby = [errorId, helperId].filter(Boolean).join(" ");

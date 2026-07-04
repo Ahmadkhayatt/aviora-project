@@ -75,7 +75,7 @@ export class BarcodeGenerator {
   static generateEAN13(productIndex: number, variantIndex: number = 0): Barcode13 {
     const digitStr =
       EAN13_SYSTEM_CODE +
-      String(productIndex).padStart(4, "0").slice(0, 4) +
+      String(productIndex).padStart(5, "0").slice(0, 5) +
       String(variantIndex).padStart(5, "0").slice(0, 5);
 
     const digits = digitStr.split("").map(Number);
@@ -175,49 +175,77 @@ export class BarcodeGenerator {
     const firstDigit = digits[0];
     const parity = EAN13_PARITY_PATTERNS[firstDigit];
 
-    const bars: number[] = [];
-    const spaces: number[] = [];
+    // ================================================================
+    // Step 1: Build the complete 95-module sequence for the barcode.
+    //         Each module is 1 (bar/dark) or 0 (space/light).
+    // ================================================================
+    const modules: number[] = [];
 
-    // Start guard: 1-0-1 (bar, space, bar)
-    bars.push(1); spaces.push(0); bars.push(1);
+    // Start guard: bar-space-bar (1-0-1)
+    modules.push(1, 0, 1);
 
-    // Left half: digits 1-6, encoded with L or G parity
+    // Left half: digits 1-6, encoded with L or G parity (7 bits each, MSB first)
     for (let i = 0; i < 6; i++) {
       const digit = digits[i + 1];
       const pattern = parity[i] === "L" ? EAN13_L_CODE[digit] : EAN13_G_CODE[digit];
-      // 7-bit patterns: most significant bit first
       for (let bit = 6; bit >= 0; bit--) {
-        const val = (pattern >> bit) & 1;
-        if (i % 2 === 0) {
-          bars.push(val);
-        } else {
-          spaces.push(val);
-        }
+        modules.push((pattern >> bit) & 1);
       }
     }
 
-    // Middle guard: 0-1-0-1-0 (space, bar, space, bar, space)
-    spaces.push(0); bars.push(1); spaces.push(0); bars.push(1); spaces.push(0);
+    // Middle guard: space-bar-space-bar-space (0-1-0-1-0)
+    modules.push(0, 1, 0, 1, 0);
 
-    // Right half: digits 7-12, encoded with R code
+    // Right half: digits 7-12, encoded with R parity (7 bits each, MSB first)
     for (let i = 0; i < 6; i++) {
       const digit = digits[i + 7];
       const pattern = EAN13_R_CODE[digit];
       for (let bit = 6; bit >= 0; bit--) {
-        const val = (pattern >> bit) & 1;
-        if (i % 2 === 0) {
-          bars.push(val);
-        } else {
-          spaces.push(val);
-        }
+        modules.push((pattern >> bit) & 1);
       }
     }
 
-    // End guard: 1-0-1
-    bars.push(1); spaces.push(0); bars.push(1);
+    // End guard: bar-space-bar (1-0-1)
+    modules.push(1, 0, 1);
 
-    const totalModules =
-      bars.reduce((a, b) => a + b, 0) + spaces.reduce((a, b) => a + b, 0);
+    // ================================================================
+    // Step 2: Run-length encode the module sequence into bar/space
+    //         element widths.  Consecutive 1s → one bar element;
+    //         consecutive 0s → one space element.
+    // ================================================================
+    const bars: number[] = [];
+    const spaces: number[] = [];
+
+    let current = modules[0];
+    let count = 1;
+
+    for (let i = 1; i < modules.length; i++) {
+      if (modules[i] === current) {
+        count++;
+      } else {
+        // Flush current run
+        if (current === 1) bars.push(count);
+        else spaces.push(count);
+        current = modules[i];
+        count = 1;
+      }
+    }
+    // Flush last run
+    if (current === 1) bars.push(count);
+    else spaces.push(count);
+
+    // ================================================================
+    // Step 3: Validate total modules = 95 for EAN-13.
+    //         No padding is needed — EAN-13 naturally produces
+    //         30 bars + 29 spaces = 95 modules (bars = spaces + 1).
+    // ================================================================
+    const totalModules = bars.reduce((a, b) => a + b, 0) + spaces.reduce((a, b) => a + b, 0);
+
+    if (totalModules !== 95) {
+      throw new Error(
+        `Incorrect total modules in EAN-13 pattern. Expected 95, got ${totalModules}. Bars: ${bars.length}, Spaces: ${spaces.length}`
+      );
+    }
 
     return {
       bars,
@@ -251,23 +279,31 @@ export class BarcodeGenerator {
     const bars: number[] = [];
     const spaces: number[] = [];
 
-    for (const val of fullSequence) {
-      const [pattern] = CODE128_ENCODING_TABLE[val];
-      // Each symbol = 3 bars + 3 spaces (11 modules), stop = 13 modules
+    for (let i = 0; i < fullSequence.length; i++) {
+      const val = fullSequence[i];
+      const entry = CODE128_ENCODING_TABLE[val];
+      if (!entry) {
+        throw new Error(`Invalid barcode character at position ${i}: ${val}`);
+      }
+      const [pattern] = entry;
+      // Each symbol = alternating bars and spaces starting with a bar
+      // 11-module symbol: 3 bars + 3 spaces (bar, space, bar, space, bar, space + trailing bar)
+      // 13-module stop:   4 bars + 3 spaces
       const width = val === CODE128_STOP ? 13 : 11;
       for (let bit = width - 1; bit >= 0; bit--) {
         const moduleVal = (pattern >> bit) & 1;
-        // Alternate between bar and space: bars[0], spaces[0], bars[1], ...
-        // Determine if this module goes to bars or spaces based on running length parity
-        const barLen = bars.reduce((a, b) => a + b, 0);
-        const spaceLen = spaces.reduce((a, b) => a + b, 0);
-        if (barLen <= spaceLen) {
+        // Even bit index from MSB = bar, odd = space (each symbol starts with bar)
+        const bitFromRight = width - 1 - bit;
+        if (bitFromRight % 2 === 0) {
           bars.push(moduleVal);
         } else {
           spaces.push(moduleVal);
         }
       }
     }
+
+    // Ensure bars and spaces arrays are balanced (bars count should equal spaces + 1 or spaces)
+    while (spaces.length < bars.length - 1) spaces.push(0);
 
     const totalModules =
       bars.reduce((a, b) => a + b, 0) + spaces.reduce((a, b) => a + b, 0);

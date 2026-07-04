@@ -6,29 +6,22 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     // Get product ID from URL or params
     const pathId = params.id;
 
-    // Try to parse as UUID, otherwise treat as slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pathId);
-
     let product;
-    if (isUUID) {
-      product = await prisma.product.findUnique({
-        where: { id: pathId, status: "ACTIVE" },
-        include: {
-          variants: {
-            where: { status: { in: ["IN_STOCK", "LOW_STOCK"] } },
-          },
+    // Unified query using findFirst with OR condition for UUID or slug
+    product = await prisma.product.findFirst({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { id: pathId },
+          { slug: pathId }
+        ]
+      },
+      include: {
+        variants: {
+          where: { status: { in: ["IN_STOCK", "LOW_STOCK"] } },
         },
-      });
-    } else {
-      product = await prisma.product.findUnique({
-        where: { slug: pathId, status: "ACTIVE" },
-        include: {
-          variants: {
-            where: { status: { in: ["IN_STOCK", "LOW_STOCK"] } },
-          },
-        },
-      });
-    }
+      },
+    });
 
     if (!product) {
       return NextResponse.json(

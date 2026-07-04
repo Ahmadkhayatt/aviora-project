@@ -114,7 +114,7 @@ export function Table<T>({
               ))}
             </tr>
           </thead>
-          <tbody className={cn("divide-y divide-charcoal-200", striped && "even:bg-charcoal-50")}>
+          <tbody className="divide-y divide-charcoal-200">
             {sortedData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-6 py-12 text-center text-charcoal-500">
@@ -127,7 +127,8 @@ export function Table<T>({
                   key={rowIndex}
                   className={cn(
                     "hover:bg-gold-50 transition-colors",
-                    onRowClick && "cursor-pointer"
+                    onRowClick && "cursor-pointer",
+                    striped && rowIndex % 2 === 1 && "even:bg-charcoal-50"
                   )}
                   onClick={() => onRowClick?.(row)}
                 >

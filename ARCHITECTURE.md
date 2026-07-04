@@ -1,4 +1,4 @@
-# LUXE JEWELS — Technical Architecture Blueprint
+# AVIORA — Technical Architecture Blueprint
 
 ## 1. Executive Summary
 
@@ -7,7 +7,7 @@
 **Architecture Pattern:** Clean Architecture (Ports & Adapters / Hexagonal)  
 **Generated:** 2026-07-02 | **Version:** 1.0.0  
 
-This document serves as the **single source of truth** for all architectural decisions, mathematical models, state machines, and execution blueprints for the LUXE JEWELS platform. Every subsequent agent in the pipeline must consume and conform to this blueprint.
+This document serves as the **single source of truth** for all architectural decisions, mathematical models, state machines, and execution blueprints for the AVIORA platform. Every subsequent agent in the pipeline must consume and conform to this blueprint.
 
 ---
 
@@ -307,7 +307,7 @@ Response flow reverses: Infrastructure → Entity → Service → Use Case → C
 ## 7. File Structure (Complete)
 
 ```
-luxe-jewels/
+aviora/
 ├── ARCHITECTURE.md                    ← This document
 ├── package.json
 ├── tsconfig.json

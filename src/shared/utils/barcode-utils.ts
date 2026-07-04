@@ -30,8 +30,17 @@ export function patternToSVG(
     x += barWidth + spaceWidth;
   }
 
+  const safeHumanReadable = options.showText
+    ? pattern.humanReadable
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;")
+    : "";
+  
   const textSvg = options.showText
-    ? `<text x="${(totalWidth / 2).toFixed(2)}" y="${(height + 20).toFixed(2)}" font-family="monospace" font-size="14" text-anchor="middle" fill="${options.foreground}">${pattern.humanReadable}</text>`
+    ? `<text x="${(totalWidth / 2).toFixed(2)}" y="${(height + 20).toFixed(2)}" font-family="monospace" font-size="14" text-anchor="middle" fill="${options.foreground}">${safeHumanReadable}</text>`
     : "";
 
   const padding = 10 * options.scale;

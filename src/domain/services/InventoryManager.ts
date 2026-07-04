@@ -171,7 +171,26 @@ export class InventoryManager {
     if (variant.status === InventoryStatus.DISCONTINUED) {
       throw new Error(`Variant ${variant.sku} is already discontinued`);
     }
-    return this.applyDelta(variant, 0, "ADJUSTMENT", `Discontinued: ${note}`);
+    // Explicitly set to DISCONTINUE status to ensure it enters terminal state
+    const status = InventoryStatus.DISCONTINUED;
+    const updated: ProductVariant = {
+      ...variant,
+      status,
+      updatedAt: new Date().toISOString() as ISODate,
+    };
+    
+    const transaction: InventoryTransaction = {
+      id: crypto.randomUUID() as UUID,
+      variantId: variant.id,
+      type: "ADJUSTMENT",
+      delta: 0,
+      previousQuantity: variant.quantity,
+      newQuantity: variant.quantity,
+      note: `Discontinued: ${note}`,
+      timestamp: new Date().toISOString() as ISODate,
+    };
+    
+    return [updated, transaction];
   }
 
   /**

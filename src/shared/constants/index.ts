@@ -73,10 +73,14 @@ export const CODE128_ENCODING_TABLE: readonly Code128Encoding[] = [
   [0b10111100010,  96], [0b11110101000,  97], [0b11110100010,  98],
   [0b10111011110,  99], [0b10111101110, 100], [0b11101011110, 101],
   [0b11110101110, 102],
-  // Start Code B
+  // Start Code A
   [0b11010000100, 103],
-  // Stop pattern
-  [0b1100011101011, 105], // NOTE: stop is 13 bits wide
+  // Start Code B
+  [0b11010010000, 104],
+  // Start Code C (not used in Code-128B, but needed for table alignment)
+  [0b11010011100, 105],
+  // Stop — 13 modules wide (value 106)
+  [0b1100011101011, 106],
 ];
 
 // ====================================================================

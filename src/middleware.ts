@@ -33,6 +33,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Strip potential spoofed headers from incoming client request
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-user-id");
+  requestHeaders.delete("x-user-email");
+  requestHeaders.delete("x-user-role");
+
   // Check if this is an admin route
   const isAdminRoute = isRouteProtected(pathname, ADMIN_ROUTES);
 
@@ -53,31 +59,37 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Check if user's email domain is whitelisted for admin access
-    const allowedDomains = (process.env.ADMIN_EMAIL_DOMAINS || "avoria.com")
-      .split(",")
-      .map((d) => d.trim().toLowerCase());
-    const emailDomain = user.email.split("@")[1]?.toLowerCase();
+    // Verify role against database instead of email domain
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
-      // Non-admin email → redirect to home
+    if (profile?.role !== "ADMIN") {
+      // Non-admin role → redirect to home
       return NextResponse.redirect(new URL("/", request.url));
     }
 
     // Admin access granted — set custom header for route handlers
-    const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-user-id", user.id);
     requestHeaders.set("x-user-email", user.email);
     requestHeaders.set("x-user-role", "ADMIN");
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
   }
 
-  return response;
+  // Create final response with updated request headers
+  const finalResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  // Preserve any session cookies updated by the Supabase client
+  response.cookies.getAll().forEach((cookie) => {
+    finalResponse.cookies.set(cookie.name, cookie.value);
+  });
+
+  return finalResponse;
 }
 
 export const config = {

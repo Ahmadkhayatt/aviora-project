@@ -35,18 +35,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get user info from Prisma to get role
-    const { prisma } = await import("@/lib/prisma");
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-      },
-    });
+    // Fetch user profile to check role and active status
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("role, isActive")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { success: false, error: "Failed to fetch user profile", timestamp: new Date().toISOString() },
+        { status: 500 }
+      );
+    }
+
+    if (!profile.isActive) {
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { success: false, error: "Account is deactivated", timestamp: new Date().toISOString() },
+        { status: 403 }
+      );
+    }
+
+    const role = profile.role;
 
     return NextResponse.json(
       {
@@ -54,16 +66,14 @@ export async function POST(request: Request) {
         data: {
           id: data.user.id,
           email: data.user.email,
-          role: user?.role || "CUSTOMER",
-          user: user
-            ? {
-                id: user.id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
-              }
-            : null,
+          role,
+          user: {
+            id: data.user.id,
+            email: data.user.email,
+            firstName: data.user.user_metadata?.firstName || null,
+            lastName: data.user.user_metadata?.lastName || null,
+            role,
+          },
         },
         timestamp: new Date().toISOString(),
       },
@@ -76,6 +86,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Log the actual error for debugging
+    console.error("Login error:", error);
 
     return NextResponse.json(
       { success: false, error: "Internal server error", timestamp: new Date().toISOString() },
